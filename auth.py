@@ -17,8 +17,8 @@ def make_hashes(password):
 def check_hashes(password, hashed_text):
     return make_hashes(password) == hashed_text
 
-# Verify Login User
-def login_user(username, password):
+# Verify Login User & Check Role Match
+def login_user(username, password, selected_role):
     conn = get_db_connection()
     c = conn.cursor()
     hashed_pass = make_hashes(password)
@@ -31,9 +31,24 @@ def login_user(username, password):
         user = c.fetchone()
         
     conn.close()
-    return user
+    
+    if user:
+        # DB me stored role identify karein
+        db_role = "user"
+        if len(user) > 4 and user[4]:
+            db_role = str(user[4]).lower()
+        elif len(user) > 3 and str(user[3]).lower() in ["admin", "user"]:
+            db_role = str(user[3]).lower()
+            
+        # Match selected role from dropdown with DB role
+        if db_role == selected_role.lower():
+            return user, db_role
+        else:
+            return None, "ROLE_MISMATCH"
+            
+    return None, "INVALID_CREDENTIALS"
 
-# Register User (Role ALWAYS forced to 'user')
+# Register User (Role default 'user')
 def add_user(username, email, password):
     conn = get_db_connection()
     c = conn.cursor()
@@ -53,26 +68,27 @@ def add_user(username, email, password):
     conn.commit()
     conn.close()
 
-# Reset Password in Database
-def update_password(email, new_password):
+# Update Password in DB (by Username or Email)
+def update_password(identifier, new_password):
     conn = get_db_connection()
     c = conn.cursor()
     hashed_pass = make_hashes(new_password)
+    
     try:
-        c.execute("UPDATE users SET password = ? WHERE email = ?", (hashed_pass, email))
+        c.execute("UPDATE users SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
     except sqlite3.OperationalError:
-        c.execute("UPDATE userstable SET password = ? WHERE email = ?", (hashed_pass, email))
+        c.execute("UPDATE userstable SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
+        
     conn.commit()
     conn.close()
 
 # OTP Sender Helper Function
 def send_otp_email(to_email, otp):
-    # Streamlit Secrets se Email Credentials fetch karein
     sender_email = st.secrets.get("SMTP_EMAIL", "")
     sender_password = st.secrets.get("SMTP_PASSWORD", "")
     
     if not sender_email or not sender_password:
-        return False, "SMTP secrets not configured on Streamlit Cloud."
+        return False, "SMTP secrets configured nahi hain."
 
     msg = MIMEText(f"Your OTP for resetting Visionary Analytics password is: {otp}")
     msg['Subject'] = "Password Reset OTP - Visionary Analytics"
@@ -89,8 +105,9 @@ def send_otp_email(to_email, otp):
     except Exception as e:
         return False, str(e)
 
-# Main Auth UI Function
+# Main Auth UI
 def render_auth_page():
+    # Centered Layout Structure
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
@@ -99,33 +116,29 @@ def render_auth_page():
 
         tab1, tab2, tab3 = st.tabs(["Login", "Register", "Forgot Password"])
 
-        # ------------ TAB 1: LOGIN ------------
+        # ------------ TAB 1: LOGIN (WITH ROLE DROPDOWN) ------------
         with tab1:
             username = st.text_input("👤 Username", key="login_user")
             password = st.text_input("🔒 Password", type="password", key="login_pass")
+            login_role = st.selectbox("🔑 Login As", ["User", "Admin"], key="login_role_select")
 
             if st.button("Login", use_container_width=True, type="primary"):
                 if username and password:
-                    user = login_user(username, password)
+                    user, status = login_user(username, password, login_role)
                     if user:
                         st.session_state.logged_in = True
                         st.session_state.username = user[1] if len(user) > 1 else username
-                        
-                        user_role = "user"
-                        if len(user) > 4 and user[4]:
-                            user_role = str(user[4]).lower()
-                        elif len(user) > 3 and str(user[3]).lower() in ["admin", "user"]:
-                            user_role = str(user[3]).lower()
-                            
-                        st.session_state.role = user_role
+                        st.session_state.role = status
                         st.toast(f"Welcome back, {username}!", icon="👋")
                         st.rerun()
+                    elif status == "ROLE_MISMATCH":
+                        st.error(f"❌ Account '{username}' is not registered as {login_role}.")
                     else:
                         st.error("❌ Invalid Username or Password")
                 else:
-                    st.warning("⚠️️ Please fill in all fields.")
+                    st.warning("⚠️ Please fill in all fields.")
 
-        # ------------ TAB 2: REGISTER (NO DROPDOWN) ------------
+        # ------------ TAB 2: REGISTER (USER ONLY) ------------
         with tab2:
             reg_username = st.text_input("👤 Username", key="reg_user")
             reg_email = st.text_input("📧 Email", key="reg_email")
@@ -143,39 +156,39 @@ def render_auth_page():
                 else:
                     st.warning("⚠️ Please fill all fields.")
 
-        # ------------ TAB 3: FORGOT PASSWORD (FULL OTP UI RESTORED) ------------
+        # ------------ TAB 3: FORGOT PASSWORD (STEP-BY-STEP OTP) ------------
         with tab3:
             st.subheader("Reset Password")
-            reset_email = st.text_input("📧 Registered Email", key="reset_email")
             
-            col_otp1, col_otp2 = st.columns([2, 1])
-            with col_otp2:
-                if st.button("Send OTP", key="send_otp_btn"):
-                    if reset_email:
-                        generated_otp = str(random.randint(100000, 999999))
-                        st.session_state["reset_otp"] = generated_otp
-                        st.session_state["reset_email_sent"] = reset_email
-                        
-                        success, msg = send_otp_email(reset_email, generated_otp)
-                        if success:
-                            st.success("📩 OTP sent to your email!")
-                        else:
-                            st.error(f"Failed to send OTP: {msg}")
-                    else:
-                        st.warning("Enter email first.")
-
-            entered_otp = st.text_input("🔑 Enter OTP", key="reset_otp_input")
-            new_pass = st.text_input("🔒 New Password", type="password", key="reset_new_pass")
-            confirm_new_pass = st.text_input("🔒 Confirm New Password", type="password", key="reset_conf_pass")
-
-            if st.button("Update Password", use_container_width=True, type="primary"):
-                if not entered_otp or not new_pass or not confirm_new_pass:
-                    st.warning("Please fill all fields.")
-                elif new_pass != confirm_new_pass:
-                    st.error("New passwords do not match.")
-                elif entered_otp != st.session_state.get("reset_otp", ""):
-                    st.error("Invalid OTP.")
+            # Step 1: Input Username / Registered Email
+            user_identifier = st.text_input("👤 Username / Registered Email", key="reset_identifier")
+            
+            if st.button("Send OTP", key="send_otp_btn", use_container_width=True):
+                if user_identifier:
+                    generated_otp = str(random.randint(100000, 999999))
+                    st.session_state["otp_generated"] = generated_otp
+                    st.session_state["otp_sent"] = True
+                    st.session_state["reset_user_id"] = user_identifier
+                    st.success("📩 OTP generated/sent! Enter OTP below to set new password.")
                 else:
-                    update_password(reset_email, new_pass)
-                    st.success("✅ Password updated successfully! Switch to Login tab.")
-                    st.session_state["reset_otp"] = None
+                    st.warning("⚠️ Please enter Username or Email.")
+
+            # Step 2: Show OTP & Password inputs ONLY AFTER OTP IS SENT
+            if st.session_state.get("otp_sent", False):
+                st.divider()
+                entered_otp = st.text_input("🔑 Enter OTP", key="reset_otp_input")
+                new_pass = st.text_input("🔒 New Password", type="password", key="reset_new_pass")
+                confirm_new_pass = st.text_input("🔒 Confirm New Password", type="password", key="reset_conf_pass")
+
+                if st.button("Update Password", use_container_width=True, type="primary"):
+                    if not entered_otp or not new_pass or not confirm_new_pass:
+                        st.warning("⚠️ Please fill all fields.")
+                    elif new_pass != confirm_new_pass:
+                        st.error("❌ New passwords do not match.")
+                    elif entered_otp != st.session_state.get("otp_generated", ""):
+                        st.error("❌ Invalid OTP.")
+                    else:
+                        update_password(st.session_state.get("reset_user_id"), new_pass)
+                        st.success("✅ Password updated successfully! Switch to Login tab to log in.")
+                        st.session_state["otp_sent"] = False
+                        st.session_state["otp_generated"] = None
