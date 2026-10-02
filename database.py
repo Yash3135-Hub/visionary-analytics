@@ -139,9 +139,12 @@ def check_lockout(username):
     if not row or not row[0]:
         return 0
 
-    locked_until = datetime.fromisoformat(row[0])
-    remaining = (locked_until - datetime.now()).total_seconds()
-    return max(0, int(remaining))
+    try:
+        locked_until = datetime.fromisoformat(row[0])
+        remaining = (locked_until - datetime.now()).total_seconds()
+        return max(0, int(remaining))
+    except Exception:
+        return 0
 
 
 def record_failed_attempt(username):
@@ -215,8 +218,10 @@ def get_upload_history(username, limit=20):
 def get_all_users():
     conn = get_connection()
     cursor = conn.cursor()
+    # Query updated to fetch newly registered users at top and handle Null values cleanly
     cursor.execute(
-        "SELECT username, email, role, failed_attempts, locked_until FROM users ORDER BY id DESC"
+        "SELECT username, email, COALESCE(role, 'user'), COALESCE(failed_attempts, 0), COALESCE(locked_until, 'None') "
+        "FROM users ORDER BY id DESC"
     )
     rows = cursor.fetchall()
     conn.close()
@@ -246,7 +251,7 @@ def get_admin_stats():
     total_uploads = cursor.fetchone()[0]
 
     cursor.execute(
-        "SELECT COUNT(*) FROM users WHERE locked_until IS NOT NULL AND locked_until != ''"
+        "SELECT COUNT(*) FROM users WHERE locked_until IS NOT NULL AND locked_until != '' AND locked_until != 'None'"
     )
     locked_accounts = cursor.fetchone()[0]
 
