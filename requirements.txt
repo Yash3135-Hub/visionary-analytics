@@ -8,3 +8,4 @@ python-dotenv
 matplotlib
 PyPDF2
 streamlit-option-menu
+fpdf
