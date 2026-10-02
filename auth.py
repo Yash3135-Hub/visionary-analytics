@@ -5,9 +5,33 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-# Database Connection Helper
+# Database Connection Helper & Auto-Seeding Default Admin
 def get_db_connection():
     conn = sqlite3.connect("users.db", check_same_thread=False)
+    c = conn.cursor()
+    
+    # Ensure users table exists
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            email TEXT UNIQUE,
+            password TEXT,
+            role TEXT
+        )
+    """)
+    conn.commit()
+
+    # Auto-seed default Admin account if missing
+    hashed_admin_pass = hashlib.sha256(str.encode("admin123")).hexdigest()
+    c.execute("SELECT * FROM users WHERE username = ?", ("admin",))
+    if not c.fetchone():
+        c.execute(
+            "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+            ("admin", "admin@visionary.com", hashed_admin_pass, "admin")
+        )
+        conn.commit()
+
     return conn
 
 # Password Hashing Helpers
@@ -17,30 +41,44 @@ def make_hashes(password):
 def check_hashes(password, hashed_text):
     return make_hashes(password) == hashed_text
 
+# Fetch Email by Username or Email Input
+def get_user_email(identifier):
+    conn = get_db_connection()
+    c = conn.cursor()
+    user_email = None
+    try:
+        if "@" in identifier:
+            c.execute("SELECT email FROM users WHERE email = ?", (identifier,))
+            res = c.fetchone()
+            if res:
+                user_email = res[0]
+        else:
+            c.execute("SELECT email FROM users WHERE username = ?", (identifier,))
+            res = c.fetchone()
+            if res:
+                user_email = res[0]
+    except Exception:
+        pass
+    conn.close()
+    return user_email
+
 # Verify Login User & Check Role Match
 def login_user(username, password, selected_role):
     conn = get_db_connection()
     c = conn.cursor()
     hashed_pass = make_hashes(password)
     
-    try:
-        c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_pass))
-        user = c.fetchone()
-    except sqlite3.OperationalError:
-        c.execute("SELECT * FROM userstable WHERE username = ? AND password = ?", (username, hashed_pass))
-        user = c.fetchone()
-        
+    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_pass))
+    user = c.fetchone()
     conn.close()
     
     if user:
-        # DB me stored role identify karein
         db_role = "user"
         if len(user) > 4 and user[4]:
             db_role = str(user[4]).lower()
         elif len(user) > 3 and str(user[3]).lower() in ["admin", "user"]:
             db_role = str(user[3]).lower()
             
-        # Match selected role from dropdown with DB role
         if db_role == selected_role.lower():
             return user, db_role
         else:
@@ -54,17 +92,10 @@ def add_user(username, email, password):
     c = conn.cursor()
     hashed_pass = make_hashes(password)
     
-    try:
-        c.execute(
-            "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-            (username, email, hashed_pass, "user")
-        )
-    except sqlite3.OperationalError:
-        c.execute(
-            "INSERT INTO userstable (username, email, password, role) VALUES (?, ?, ?, ?)",
-            (username, email, hashed_pass, "user")
-        )
-        
+    c.execute(
+        "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
+        (username, email, hashed_pass, "user")
+    )
     conn.commit()
     conn.close()
 
@@ -74,26 +105,21 @@ def update_password(identifier, new_password):
     c = conn.cursor()
     hashed_pass = make_hashes(new_password)
     
-    try:
-        c.execute("UPDATE users SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
-    except sqlite3.OperationalError:
-        c.execute("UPDATE userstable SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
-        
+    c.execute("UPDATE users SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
     conn.commit()
     conn.close()
 
-# Improved OTP Sender Helper Function with Detailed Error Catching
+# OTP Sender Helper Function
 def send_otp_email(to_email, otp):
     try:
         sender_email = st.secrets["SMTP_EMAIL"]
-        sender_password = str(st.secrets["SMTP_PASSWORD"]).replace(" ", "")  # Auto-remove spaces
+        sender_password = str(st.secrets["SMTP_PASSWORD"]).replace(" ", "")
     except Exception as e:
         return False, f"Secrets configuration error: {e}"
 
     if not sender_email or not sender_password:
         return False, "SMTP Email or Password missing in Streamlit Secrets."
 
-    # Email Content
     msg = MIMEText(f"Your OTP for resetting Visionary Analytics password is: {otp}")
     msg['Subject'] = "Password Reset OTP - Visionary Analytics"
     msg['From'] = sender_email
@@ -111,7 +137,6 @@ def send_otp_email(to_email, otp):
 
 # Main Auth UI
 def render_auth_page():
-    # Centered Layout Structure
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
@@ -120,7 +145,7 @@ def render_auth_page():
 
         tab1, tab2, tab3 = st.tabs(["Login", "Register", "Forgot Password"])
 
-        # ------------ TAB 1: LOGIN (WITH ROLE DROPDOWN) ------------
+        # ------------ TAB 1: LOGIN ------------
         with tab1:
             username = st.text_input("👤 Username", key="login_user")
             password = st.text_input("🔒 Password", type="password", key="login_pass")
@@ -142,7 +167,7 @@ def render_auth_page():
                 else:
                     st.warning("⚠️ Please fill in all fields.")
 
-        # ------------ TAB 2: REGISTER (USER ONLY) ------------
+        # ------------ TAB 2: REGISTER ------------
         with tab2:
             reg_username = st.text_input("👤 Username", key="reg_user")
             reg_email = st.text_input("📧 Email", key="reg_email")
@@ -160,32 +185,38 @@ def render_auth_page():
                 else:
                     st.warning("⚠️ Please fill all fields.")
 
-        # ------------ TAB 3: FORGOT PASSWORD (DYNAMIC OTP & ERROR DISPLAY) ------------
+        # ------------ TAB 3: FORGOT PASSWORD ------------
         with tab3:
             st.subheader("Reset Password")
             
-            # Input Username / Registered Email
             user_identifier = st.text_input("👤 Username / Registered Email", key="reset_identifier")
             
             if st.button("Send OTP", key="send_otp_btn", use_container_width=True):
                 if user_identifier:
-                    generated_otp = str(random.randint(100000, 999999))
-                    st.session_state["otp_generated"] = generated_otp
-                    st.session_state["reset_user_id"] = user_identifier
+                    recipient_email = get_user_email(user_identifier)
                     
-                    with st.spinner("Sending OTP..."):
-                        success, msg = send_otp_email(user_identifier, generated_otp)
+                    if not recipient_email and "@" in user_identifier:
+                        recipient_email = user_identifier
                         
-                    if success:
-                        st.session_state["otp_sent"] = True
-                        st.success(f"📩 OTP sent successfully to {user_identifier}!")
+                    if recipient_email:
+                        generated_otp = str(random.randint(100000, 999999))
+                        st.session_state["otp_generated"] = generated_otp
+                        st.session_state["reset_user_id"] = user_identifier
+                        
+                        with st.spinner("Sending OTP..."):
+                            success, msg = send_otp_email(recipient_email, generated_otp)
+                            
+                        if success:
+                            st.session_state["otp_sent"] = True
+                            st.success(f"📩 OTP sent successfully to registered email ({recipient_email})!")
+                        else:
+                            st.session_state["otp_sent"] = False
+                            st.error(f"❌ Failed to send email: {msg}")
                     else:
-                        st.session_state["otp_sent"] = False
-                        st.error(f"❌ Failed to send email: {msg}")
+                        st.error("❌ Username or Email not found in database.")
                 else:
-                    st.warning("⚠️ Please enter Username or Email.")
+                    st.warning("⚠️️ Please enter Username or Email.")
 
-            # Show OTP & Password inputs ONLY AFTER OTP IS SENT SUCCESSFULLY
             if st.session_state.get("otp_sent", False):
                 st.divider()
                 entered_otp = st.text_input("🔑 Enter OTP", key="reset_otp_input")
