@@ -12,9 +12,9 @@ def render_admin_page():
 
     total_users, total_uploads, locked_accounts = get_admin_stats()
     render_kpi_cards([
-     #   (str(total_users), "Total Users"),
-      #  (str(total_uploads), "Total Uploads"),
-      #  (str(locked_accounts), "Locked Accounts"),
+     (str(total_users), "Total Users"),
+     (str(total_uploads), "Total Uploads"),
+     (str(locked_accounts), "Locked Accounts"),
     ])
 
     tab_users, tab_uploads = st.tabs(["👥 Manage Users", "📁 All Upload History"])
