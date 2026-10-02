@@ -12,17 +12,23 @@ def render_admin_page():
 
     total_users, total_uploads, locked_accounts = get_admin_stats()
     render_kpi_cards([
-     (str(total_users), "Total Users"),
-     (str(total_uploads), "Total Uploads"),
-     (str(locked_accounts), "Locked Accounts"),
+        (str(total_users), "TOTAL USERS"),
+        (str(total_uploads), "TOTAL UPLOADS"),
+        (str(locked_accounts), "LOCKED ACCOUNTS"),
     ])
 
     tab_users, tab_uploads = st.tabs(["👥 Manage Users", "📁 All Upload History"])
 
     # ---------------- TAB 1: MANAGE USERS ----------------
     with tab_users:
-        st.subheader("👥 Registered Users")
+        col_title, col_ref = st.columns([4, 1])
+        with col_title:
+            st.subheader("👥 Registered Users")
+        with col_ref:
+            if st.button("🔄 Refresh Data", key="refresh_users"):
+                st.rerun()
 
+        # Fetch latest users directly from DB
         users = get_all_users()
 
         if not users:
@@ -40,7 +46,7 @@ def render_admin_page():
             usernames = [u[0] for u in users]
             selected_user = st.selectbox("Select a user", usernames, key="admin_user_select")
 
-            current_role = next(u[2] for u in users if u[0] == selected_user)
+            current_role = next((u[2] for u in users if u[0] == selected_user), "user")
             is_locked = check_lockout(selected_user) > 0
 
             col1, col2, col3 = st.columns(3)
