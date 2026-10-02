@@ -5,12 +5,12 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-# Database Connection Helper - Force admin role update without losing user data
+# Database Connection Helper
 def get_db_connection():
     conn = sqlite3.connect("users.db", check_same_thread=False)
     c = conn.cursor()
     
-    # Ensure users table exists
+    # Create table if missing
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,27 +21,28 @@ def get_db_connection():
         )
     """)
     conn.commit()
+    return conn
 
+# Force Reset Admin Credentials in DB
+def enforce_admin_credentials():
+    conn = get_db_connection()
+    c = conn.cursor()
     hashed_admin_pass = hashlib.sha256(str.encode("admin123")).hexdigest()
     
-    # Check if admin exists
-    c.execute("SELECT * FROM users WHERE LOWER(username) = ?", ("admin",))
-    admin_user = c.fetchone()
-    
-    if not admin_user:
-        # Create admin if not present
+    # Force update or insert admin directly
+    c.execute("SELECT * FROM users WHERE LOWER(username) = 'admin'")
+    if c.fetchone():
         c.execute(
-            "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
-            ("admin", "admin@visionary.com", hashed_admin_pass, "admin")
+            "UPDATE users SET password = ?, role = 'admin' WHERE LOWER(username) = 'admin'",
+            (hashed_admin_pass,)
         )
     else:
-        # Force update password AND role to 'admin' for existing admin account
         c.execute(
-            "UPDATE users SET password = ?, role = ? WHERE LOWER(username) = ?",
-            (hashed_admin_pass, "admin", "admin")
+            "INSERT INTO users (username, email, password, role) VALUES ('admin', 'admin@visionary.com', ?, 'admin')",
+            (hashed_admin_pass,)
         )
     conn.commit()
-    return conn
+    conn.close()
 
 # Password Hashing Helpers
 def make_hashes(password):
@@ -71,25 +72,28 @@ def get_user_email(identifier):
     conn.close()
     return user_email
 
-# Verify Login User & Check Role Match (Case-Insensitive)
+# Verify Login User & Check Role Match
 def login_user(username, password, selected_role):
+    # Always enforce admin update when logging in as admin
+    if username.strip().lower() == "admin":
+        enforce_admin_credentials()
+
     conn = get_db_connection()
     c = conn.cursor()
     hashed_pass = make_hashes(password)
     
-    c.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND password = ?", (username, hashed_pass))
+    c.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND password = ?", (username.strip(), hashed_pass))
     user = c.fetchone()
     conn.close()
     
     if user:
-        # DB role retrieval with fallback checks
+        # Extract role regardless of table column order
         db_role = "user"
-        if len(user) > 4 and user[4]:
-            db_role = str(user[4]).strip().lower()
-        elif len(user) > 3 and str(user[3]).strip().lower() in ["admin", "user"]:
-            db_role = str(user[3]).strip().lower()
-            
-        # Match selected dropdown role with DB role
+        for field in user:
+            if str(field).lower() in ["admin", "user"]:
+                db_role = str(field).lower()
+                break
+
         if db_role == selected_role.strip().lower():
             return user, db_role
         else:
