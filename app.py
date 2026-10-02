@@ -109,7 +109,7 @@ def show_help_modal():
     with col1:
         st.markdown("**Q: Konsi files supported hain?**\n*Ans: Abhi Dashboard me `.xlsx` (Excel) files supported hain.*")
     with col2:
-        st.markdown("**Q: Data kaha save hota hai?**\n*Ans: User data aur upload logs SQLite (`users.db`) database me local database me store hote hain.*")
+        st.markdown("**Q: Data kaha save hota hai?**\n*Ans: User data aur upload logs SQLite (`users.db`) database me store hote hain.*")
 
 
 # ---------------- 👤 PROFILE POPOVER ----------------
@@ -119,7 +119,7 @@ def render_profile_popover():
 
     with st.popover(f"🟡 **{username}**  \n:grey[{role_label}]", use_container_width=True):
         st.markdown(f"### 🟡 {username}")
-        st.caption(role_label + " Account")
+        st.caption(f"{role_label} Account")
         st.divider()
 
         if st.button("👤 Profile", use_container_width=True, key="pop_profile"):
@@ -208,4 +208,8 @@ if not show_profile_here:
         st.divider()
         render_profile_popover()
 
-render_floating_chatbot()
+# Floating Chatbot Rendering
+try:
+    render_floating_chatbot()
+except Exception as e:
+    st.warning("⚠️ Chatbot initialization issue. Please check Gemini API Key.")
