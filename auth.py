@@ -82,14 +82,18 @@ def update_password(identifier, new_password):
     conn.commit()
     conn.close()
 
-# OTP Sender Helper Function
+# Improved OTP Sender Helper Function with Detailed Error Catching
 def send_otp_email(to_email, otp):
-    sender_email = st.secrets.get("SMTP_EMAIL", "")
-    sender_password = st.secrets.get("SMTP_PASSWORD", "")
-    
-    if not sender_email or not sender_password:
-        return False, "SMTP secrets configured nahi hain."
+    try:
+        sender_email = st.secrets["SMTP_EMAIL"]
+        sender_password = str(st.secrets["SMTP_PASSWORD"]).replace(" ", "")  # Auto-remove spaces
+    except Exception as e:
+        return False, f"Secrets configuration error: {e}"
 
+    if not sender_email or not sender_password:
+        return False, "SMTP Email or Password missing in Streamlit Secrets."
+
+    # Email Content
     msg = MIMEText(f"Your OTP for resetting Visionary Analytics password is: {otp}")
     msg['Subject'] = "Password Reset OTP - Visionary Analytics"
     msg['From'] = sender_email
@@ -156,24 +160,32 @@ def render_auth_page():
                 else:
                     st.warning("⚠️ Please fill all fields.")
 
-        # ------------ TAB 3: FORGOT PASSWORD (STEP-BY-STEP OTP) ------------
+        # ------------ TAB 3: FORGOT PASSWORD (DYNAMIC OTP & ERROR DISPLAY) ------------
         with tab3:
             st.subheader("Reset Password")
             
-            # Step 1: Input Username / Registered Email
+            # Input Username / Registered Email
             user_identifier = st.text_input("👤 Username / Registered Email", key="reset_identifier")
             
             if st.button("Send OTP", key="send_otp_btn", use_container_width=True):
                 if user_identifier:
                     generated_otp = str(random.randint(100000, 999999))
                     st.session_state["otp_generated"] = generated_otp
-                    st.session_state["otp_sent"] = True
                     st.session_state["reset_user_id"] = user_identifier
-                    st.success("📩 OTP generated/sent! Enter OTP below to set new password.")
+                    
+                    with st.spinner("Sending OTP..."):
+                        success, msg = send_otp_email(user_identifier, generated_otp)
+                        
+                    if success:
+                        st.session_state["otp_sent"] = True
+                        st.success(f"📩 OTP sent successfully to {user_identifier}!")
+                    else:
+                        st.session_state["otp_sent"] = False
+                        st.error(f"❌ Failed to send email: {msg}")
                 else:
                     st.warning("⚠️ Please enter Username or Email.")
 
-            # Step 2: Show OTP & Password inputs ONLY AFTER OTP IS SENT
+            # Show OTP & Password inputs ONLY AFTER OTP IS SENT SUCCESSFULLY
             if st.session_state.get("otp_sent", False):
                 st.divider()
                 entered_otp = st.text_input("🔑 Enter OTP", key="reset_otp_input")
