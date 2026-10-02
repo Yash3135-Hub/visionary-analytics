@@ -1,6 +1,9 @@
 import streamlit as st
 import sqlite3
 import hashlib
+import random
+import smtplib
+from email.mime.text import MIMEText
 
 # Database Connection Helper
 def get_db_connection():
@@ -50,9 +53,44 @@ def add_user(username, email, password):
     conn.commit()
     conn.close()
 
+# Reset Password in Database
+def update_password(email, new_password):
+    conn = get_db_connection()
+    c = conn.cursor()
+    hashed_pass = make_hashes(new_password)
+    try:
+        c.execute("UPDATE users SET password = ? WHERE email = ?", (hashed_pass, email))
+    except sqlite3.OperationalError:
+        c.execute("UPDATE userstable SET password = ? WHERE email = ?", (hashed_pass, email))
+    conn.commit()
+    conn.close()
+
+# OTP Sender Helper Function
+def send_otp_email(to_email, otp):
+    # Streamlit Secrets se Email Credentials fetch karein
+    sender_email = st.secrets.get("SMTP_EMAIL", "")
+    sender_password = st.secrets.get("SMTP_PASSWORD", "")
+    
+    if not sender_email or not sender_password:
+        return False, "SMTP secrets not configured on Streamlit Cloud."
+
+    msg = MIMEText(f"Your OTP for resetting Visionary Analytics password is: {otp}")
+    msg['Subject'] = "Password Reset OTP - Visionary Analytics"
+    msg['From'] = sender_email
+    msg['To'] = to_email
+
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, to_email, msg.as_string())
+        server.quit()
+        return True, "OTP Sent Successfully"
+    except Exception as e:
+        return False, str(e)
+
 # Main Auth UI Function
 def render_auth_page():
-    # Center Layout Columns (UI ko broad hone se rokne ke liye)
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
@@ -85,9 +123,9 @@ def render_auth_page():
                     else:
                         st.error("❌ Invalid Username or Password")
                 else:
-                    st.warning("⚠️ Please fill in all fields.")
+                    st.warning("⚠️️ Please fill in all fields.")
 
-        # ------------ TAB 2: REGISTER (DROPDOWN REMOVED) ------------
+        # ------------ TAB 2: REGISTER (NO DROPDOWN) ------------
         with tab2:
             reg_username = st.text_input("👤 Username", key="reg_user")
             reg_email = st.text_input("📧 Email", key="reg_email")
@@ -105,6 +143,39 @@ def render_auth_page():
                 else:
                     st.warning("⚠️ Please fill all fields.")
 
-        # ------------ TAB 3: FORGOT PASSWORD ------------
+        # ------------ TAB 3: FORGOT PASSWORD (FULL OTP UI RESTORED) ------------
         with tab3:
-            st.info("💡 Password recovery active. Contact administrator if needed.")
+            st.subheader("Reset Password")
+            reset_email = st.text_input("📧 Registered Email", key="reset_email")
+            
+            col_otp1, col_otp2 = st.columns([2, 1])
+            with col_otp2:
+                if st.button("Send OTP", key="send_otp_btn"):
+                    if reset_email:
+                        generated_otp = str(random.randint(100000, 999999))
+                        st.session_state["reset_otp"] = generated_otp
+                        st.session_state["reset_email_sent"] = reset_email
+                        
+                        success, msg = send_otp_email(reset_email, generated_otp)
+                        if success:
+                            st.success("📩 OTP sent to your email!")
+                        else:
+                            st.error(f"Failed to send OTP: {msg}")
+                    else:
+                        st.warning("Enter email first.")
+
+            entered_otp = st.text_input("🔑 Enter OTP", key="reset_otp_input")
+            new_pass = st.text_input("🔒 New Password", type="password", key="reset_new_pass")
+            confirm_new_pass = st.text_input("🔒 Confirm New Password", type="password", key="reset_conf_pass")
+
+            if st.button("Update Password", use_container_width=True, type="primary"):
+                if not entered_otp or not new_pass or not confirm_new_pass:
+                    st.warning("Please fill all fields.")
+                elif new_pass != confirm_new_pass:
+                    st.error("New passwords do not match.")
+                elif entered_otp != st.session_state.get("reset_otp", ""):
+                    st.error("Invalid OTP.")
+                else:
+                    update_password(reset_email, new_pass)
+                    st.success("✅ Password updated successfully! Switch to Login tab.")
+                    st.session_state["reset_otp"] = None
