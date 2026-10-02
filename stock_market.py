@@ -1,7 +1,18 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
-from config import client, GEMINI_API_KEY
+import os
+
+# Gemini Client Initialization with Fallback
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or st.secrets.get("GEMINI_API_KEY", "")
+
+client = None
+if GEMINI_API_KEY:
+    try:
+        from google import genai
+        client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        client = None
 
 def render_stock_page():
     st.title("📈 Stock Market Analysis")
@@ -74,7 +85,7 @@ def render_stock_page():
                 df = df.reset_index()
                 date_col = 'Datetime' if 'Datetime' in df.columns else 'Date'
 
-                # KPI METRIC CARDS (Open, Close, High, Low, Volume)
+                # KPI METRIC CARDS
                 latest_close = df['Close'].iloc[-1]
                 prev_close = df['Close'].iloc[-2] if len(df) > 1 else latest_close
                 price_change = latest_close - prev_close
@@ -124,11 +135,11 @@ def render_stock_page():
 
                 st.divider()
 
-                # GEMINI AI STOCK INSIGHTS (API Key Usage)
+                # GEMINI AI STOCK INSIGHTS
                 st.subheader("🤖 AI Stock Analysis")
                 if st.button("✨ Generate Gemini AI Stock Report", key="ai_stock_btn"):
                     if not GEMINI_API_KEY or not client:
-                        st.error("⚠️ GEMINI_API_KEY not found in .env file.")
+                        st.warning("⚠️ Streamlit Secrets me `GEMINI_API_KEY` add nahi kiya hai. Performance report generate karne ke liye Streamlit Cloud settings me key set karein.")
                     else:
                         with st.spinner("Analyzing stock trends with Gemini AI..."):
                             try:
