@@ -5,12 +5,12 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-# Database Connection Helper - Only update Admin credentials
+# Database Connection Helper - Force admin role update without losing user data
 def get_db_connection():
     conn = sqlite3.connect("users.db", check_same_thread=False)
     c = conn.cursor()
     
-    # Ensure users table exists without dropping old data
+    # Ensure users table exists
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,20 +22,22 @@ def get_db_connection():
     """)
     conn.commit()
 
-    # Reset/Ensure ONLY the 'admin' account password is set to 'admin123'
     hashed_admin_pass = hashlib.sha256(str.encode("admin123")).hexdigest()
     
-    c.execute("SELECT * FROM users WHERE username = ?", ("admin",))
+    # Check if admin exists
+    c.execute("SELECT * FROM users WHERE LOWER(username) = ?", ("admin",))
     admin_user = c.fetchone()
     
     if not admin_user:
+        # Create admin if not present
         c.execute(
             "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
             ("admin", "admin@visionary.com", hashed_admin_pass, "admin")
         )
     else:
+        # Force update password AND role to 'admin' for existing admin account
         c.execute(
-            "UPDATE users SET password = ?, role = ? WHERE username = ?",
+            "UPDATE users SET password = ?, role = ? WHERE LOWER(username) = ?",
             (hashed_admin_pass, "admin", "admin")
         )
     conn.commit()
@@ -55,12 +57,12 @@ def get_user_email(identifier):
     user_email = None
     try:
         if "@" in identifier:
-            c.execute("SELECT email FROM users WHERE email = ?", (identifier,))
+            c.execute("SELECT email FROM users WHERE LOWER(email) = LOWER(?)", (identifier,))
             res = c.fetchone()
             if res:
                 user_email = res[0]
         else:
-            c.execute("SELECT email FROM users WHERE username = ?", (identifier,))
+            c.execute("SELECT email FROM users WHERE LOWER(username) = LOWER(?)", (identifier,))
             res = c.fetchone()
             if res:
                 user_email = res[0]
@@ -69,24 +71,26 @@ def get_user_email(identifier):
     conn.close()
     return user_email
 
-# Verify Login User & Check Role Match
+# Verify Login User & Check Role Match (Case-Insensitive)
 def login_user(username, password, selected_role):
     conn = get_db_connection()
     c = conn.cursor()
     hashed_pass = make_hashes(password)
     
-    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_pass))
+    c.execute("SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND password = ?", (username, hashed_pass))
     user = c.fetchone()
     conn.close()
     
     if user:
+        # DB role retrieval with fallback checks
         db_role = "user"
         if len(user) > 4 and user[4]:
-            db_role = str(user[4]).lower()
-        elif len(user) > 3 and str(user[3]).lower() in ["admin", "user"]:
-            db_role = str(user[3]).lower()
+            db_role = str(user[4]).strip().lower()
+        elif len(user) > 3 and str(user[3]).strip().lower() in ["admin", "user"]:
+            db_role = str(user[3]).strip().lower()
             
-        if db_role == selected_role.lower():
+        # Match selected dropdown role with DB role
+        if db_role == selected_role.strip().lower():
             return user, db_role
         else:
             return None, "ROLE_MISMATCH"
@@ -112,7 +116,7 @@ def update_password(identifier, new_password):
     c = conn.cursor()
     hashed_pass = make_hashes(new_password)
     
-    c.execute("UPDATE users SET password = ? WHERE username = ? OR email = ?", (hashed_pass, identifier, identifier))
+    c.execute("UPDATE users SET password = ? WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)", (hashed_pass, identifier, identifier))
     conn.commit()
     conn.close()
 
