@@ -1,11 +1,12 @@
 streamlit
-google-genai
-scikit-learn
 pandas
 numpy
 plotly
-python-dotenv
 matplotlib
+seaborn
+scikit-learn
+google-genai
+python-dotenv
 PyPDF2
 streamlit-option-menu
-fpdf
+fpdf2
