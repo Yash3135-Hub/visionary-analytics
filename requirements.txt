@@ -10,3 +10,4 @@ python-dotenv
 PyPDF2
 streamlit-option-menu
 fpdf2
+yfinance
