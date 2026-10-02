@@ -5,12 +5,12 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-# Database Connection Helper & Auto-Seeding Default Admin
+# Database Connection Helper - Only update Admin credentials
 def get_db_connection():
     conn = sqlite3.connect("users.db", check_same_thread=False)
     c = conn.cursor()
     
-    # Ensure users table exists
+    # Ensure users table exists without dropping old data
     c.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,16 +22,23 @@ def get_db_connection():
     """)
     conn.commit()
 
-    # Auto-seed default Admin account if missing
+    # Reset/Ensure ONLY the 'admin' account password is set to 'admin123'
     hashed_admin_pass = hashlib.sha256(str.encode("admin123")).hexdigest()
+    
     c.execute("SELECT * FROM users WHERE username = ?", ("admin",))
-    if not c.fetchone():
+    admin_user = c.fetchone()
+    
+    if not admin_user:
         c.execute(
             "INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, ?)",
             ("admin", "admin@visionary.com", hashed_admin_pass, "admin")
         )
-        conn.commit()
-
+    else:
+        c.execute(
+            "UPDATE users SET password = ?, role = ? WHERE username = ?",
+            (hashed_admin_pass, "admin", "admin")
+        )
+    conn.commit()
     return conn
 
 # Password Hashing Helpers
@@ -215,7 +222,7 @@ def render_auth_page():
                     else:
                         st.error("❌ Username or Email not found in database.")
                 else:
-                    st.warning("⚠️️ Please enter Username or Email.")
+                    st.warning("⚠️ Please enter Username or Email.")
 
             if st.session_state.get("otp_sent", False):
                 st.divider()
