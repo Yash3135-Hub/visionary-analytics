@@ -11,7 +11,7 @@ if GEMINI_API_KEY:
     try:
         from google import genai
         client = genai.Client(api_key=GEMINI_API_KEY)
-    except Exception as e:
+    except Exception:
         client = None
 
 def render_stock_page():
@@ -74,12 +74,20 @@ def render_stock_page():
                 label_visibility="collapsed"
             )
 
+        # Fix for KeyError: If selected_tf is None or invalid, default to '1Y'
+        if not selected_tf or selected_tf not in tf_options:
+            selected_tf = "1Y"
+
         period, interval = tf_options[selected_tf]
 
         try:
             with st.spinner(f"Fetching data for {ticker_symbol}..."):
                 stock = yf.Ticker(ticker_symbol)
                 df = stock.history(period=period, interval=interval)
+
+                # Fallback if 1D interval is empty (e.g. market closed)
+                if df.empty and selected_tf == "1D":
+                    df = stock.history(period="5d", interval="1d").tail(1)
 
             if not df.empty:
                 df = df.reset_index()
@@ -139,7 +147,7 @@ def render_stock_page():
                 st.subheader("🤖 AI Stock Analysis")
                 if st.button("✨ Generate Gemini AI Stock Report", key="ai_stock_btn"):
                     if not GEMINI_API_KEY or not client:
-                        st.warning("⚠️ Streamlit Secrets me `GEMINI_API_KEY` add nahi kiya hai. Performance report generate karne ke liye Streamlit Cloud settings me key set karein.")
+                        st.warning("⚠️ Streamlit Secrets me `GEMINI_API_KEY` add nahi kiya hai. Settings -> Secrets me key set karein.")
                     else:
                         with st.spinner("Analyzing stock trends with Gemini AI..."):
                             try:
