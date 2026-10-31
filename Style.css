@@ -1,0 +1,222 @@
+/* ===================================================================
+   Visionary Analytics
+   Custom stylesheet — dark glassmorphism theme
+   =================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.main {
+    background: radial-gradient(circle at 20% 0%, #10222E 0%, #070E14 60%);
+    color: #E6EEF2;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #0C1A22;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+h1, h2, h3 {
+    color: #FF7A45;
+    font-weight: 800 !important;
+}
+
+.stButton>button {
+    background: linear-gradient(135deg, #FF7A45, #FF4B4B);
+    color: #07131B;
+    font-weight: 700;
+    border-radius: 12px;
+    border: none;
+    padding: 0.5em 1.4em;
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+
+.stButton>button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(255, 75, 75, 0.35);
+}
+
+/* ---- Glass KPI dashboard cards ---- */
+.ai-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin: 14px 0 26px 0;
+}
+
+.dashboard-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(14px);
+    border-radius: 16px;
+    padding: 22px 16px;
+    text-align: center;
+    transition: transform .25s ease, border-color .25s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255, 75, 75, 0.5);
+}
+
+.dashboard-card h2 {
+    font-size: 1.8em;
+    margin: 0 0 4px 0;
+    background: linear-gradient(135deg, #FF7A45, #FF4B4B);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.dashboard-card p {
+    margin: 0;
+    color: #8FA7B6;
+    font-size: 0.85em;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* ---- Home page tagline ---- */
+.tagline {
+    color: #E6EEF2;
+    font-weight: 700;
+    font-size: 1.3em;
+    margin: 4px 0 10px 0;
+}
+
+/* ---- Feature grid (About page) ---- */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 14px 0 26px 0;
+}
+
+.feature-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 16px;
+    padding: 20px;
+    transition: transform .25s ease, border-color .25s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 75, 75, 0.5);
+}
+
+.feature-card i {
+    font-size: 1.4em;
+    color: #FF7A45;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.feature-card h4 {
+    margin: 6px 0 4px 0;
+    color: #E6EEF2;
+    font-size: 1.05em;
+}
+
+.feature-card p {
+    margin: 0;
+    color: #8FA7B6;
+    font-size: 0.88em;
+    line-height: 1.5;
+}
+
+/* ---- Contact cards ---- */
+.contact-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    transition: transform .25s ease, border-color .25s ease;
+}
+
+.contact-card:hover {
+    transform: translateX(6px);
+    border-color: rgba(255, 75, 75, 0.5);
+}
+
+.contact-card i {
+    font-size: 1.3em;
+    color: #FF7A45;
+    width: 26px;
+    text-align: center;
+}
+
+.contact-card .label {
+    color: #8FA7B6;
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+}
+
+.contact-card .value {
+    color: #E6EEF2;
+    font-size: 1em;
+    font-weight: 600;
+    margin: 0;
+}
+
+.contact-card a {
+    color: #E6EEF2;
+    text-decoration: none;
+}
+
+.contact-card a:hover {
+    color: #FF7A45;
+}
+
+
+/* ---- Auth card (Login/Register/Forgot Password) ---- */
+div[class*="st-key-auth_card"] {
+    max-width: 520px;
+    margin: 40px auto !important;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(14px);
+    border-radius: 20px;
+    padding: 32px 28px 24px 28px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+div[class*="st-key-auth_card"] h1 {
+    font-size: 1.6em;
+    margin-bottom: 2px;
+}
+
+div[class*="st-key-auth_card"] .stTabs [data-baseweb="tab-list"] {
+    gap: 20px;
+}
+
+div[class*="st-key-auth_card"] .stTabs [data-baseweb="tab"] {
+    border-radius: 10px 10px 0 0;
+    padding: 8px 4px;
+}
+
+/* ---- Sidebar User Popover Card Styling (ChatGPT Style) ---- */
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    padding: 10px 14px !important;
+    transition: all 0.25s ease-in-out !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button:hover {
+    border-color: #FF7A45 !important;
+    background-color: rgba(255, 122, 69, 0.1) !important;
+    transform: translateY(-2px);
+}
