@@ -168,8 +168,15 @@ with st.sidebar:
         styles={
             "container": {"padding": "5px", "background-color": "#161B22"},
             "icon": {"color": "#FF4B4B", "font-size": "18px"},
-            "nav-link": {"font-size": "16px", "text-align": "left", "margin": "4px", "border-radius": "8px"},
-            "nav-link-selected": {"background-color": "#1F6FEB", "color": "white"}
+            "nav-link": {
+                "font-size": "16px", 
+                "text-align": "left", 
+                "margin": "4px", 
+                "border-radius": "8px",
+                "color": "#ffffff",        # Bright White color for unselected items
+                "opacity": "1.0"           # Removed dull dimming effect
+            },
+            "nav-link-selected": {"background-color": "#1F6FEB", "color": "#ffffff"}
         }
     )
 
