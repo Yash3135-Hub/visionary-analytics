@@ -1,5 +1,5 @@
 streamlit
-google-genai
+google-generativeai
 scikit-learn
 pandas
 numpy
@@ -9,4 +9,5 @@ matplotlib
 PyPDF2
 streamlit-option-menu
 statsmodels
-fpdf
+fpdf2
+openpyxl
