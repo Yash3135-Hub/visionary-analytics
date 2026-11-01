@@ -9,3 +9,4 @@ matplotlib
 PyPDF2
 streamlit-option-menu
 statsmodels
+fpdf
