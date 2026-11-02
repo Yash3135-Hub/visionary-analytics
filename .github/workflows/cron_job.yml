@@ -1,23 +1,14 @@
-name: Daily Project Run
+name: Keep Streamlit App Alive
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Yeh ab har 6 ghante me automatic run hoga (0:00, 6:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *' # Har 6 ghante me run hoga
+  workflow_dispatch: # Isse aap button click karke manually bhi test kar sakte hain
 
 jobs:
-  run-script:
+  ping-app:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run script
-        run: python app.py
+      - name: Send HTTP Request to Streamlit App
+        run: |
+          curl -I https://visionary-analytics-ai.streamlit.app/
